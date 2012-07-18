@@ -1,0 +1,428 @@
+<!doctype html>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<title>WebCL Outline</title>
+<style type="text/css">
+<!--
+body {
+	background-color: #000;
+	font-family: Verdana, Geneva, sans-serif;
+	color: #CCC;
+	font-size: small;
+	margin-left: 0px;
+	margin-top: 15px;
+	margin-right: 0px;
+	margin-bottom: 0px;
+}
+#outputtextarea {
+	font-family: Verdana, Geneva, sans-serif;
+	font-size: x-small;
+	font-style: normal;
+	background-color: #444;
+	width: 286px;
+	height: 250px;
+	border-width: 2px;
+	border-radius:7px;
+	-moz-border-radius:7px; /* Firefox 3.6 and earlier */
+	border-style:solid;
+	color: #FFF;
+	padding: 5px;
+	border-color: #666;
+}
+#divDeviceRadios, #divImageRadios {
+	font-family: Verdana, Geneva, sans-serif;
+	font-size: x-small;
+	font-style: normal;
+	color: #CCC;
+	width: 300px;
+}
+a {
+	color:#9CC;
+	text-decoration:none;
+	border-bottom-width:thin;
+	border-bottom-style:solid;
+}
+a:hover {
+	color:#F90;
+	text-shadow: 0 0 15px #F90;
+	border-bottom:none;
+	text-decoration:none;
+}
+.buttons {
+	padding:5px;
+	color:#FFF;
+	background-color: #666;
+	border-radius:7px;
+	-moz-border-radius:7px; /* Firefox 3.6 and earlier */
+}
+.genTd {
+	border-color: #666;
+	border-width: 2px 2px 2px 2px;
+	border-style: solid;
+	background-color: #333;
+	border-radius:9px;
+	-moz-border-radius:9px; /* Firefox 3.6 and earlier */
+}
+#divCanvasImg {
+	height: 603px;
+	width: 803px;
+	overflow: auto;	
+}
+-->
+</style>
+</head>
+<script id="clProgramOutline" type="text/x-opencl"> 
+	__kernel void adjust_Pixel(__global uchar4 * inBuff,
+								__global uchar4 * outBuff, 
+								uint w, 
+								uint h)	{	
+		int x = get_global_id(0);
+		int y = get_global_id(1);
+		
+		if (!( x >= 1 && x < (w-1) && y >= 1 && y < (h-1))) return;		
+
+		int4 inBuff_00, inBuff_10, inBuff_20, 
+			inBuff_01, inBuff_11, inBuff_21, 
+			inBuff_02, inBuff_12, inBuff_22;
+
+		inBuff_00 = inBuff_10 = inBuff_20 = 
+			inBuff_01 = inBuff_11 = inBuff_21 = 
+			inBuff_02 = inBuff_12 = inBuff_22 = (int4)(0);
+
+		int c = x + y * w;
+
+		int4 Gx = (int4)(0);
+		int4 Gy = (int4)(0);
+
+		// Read each texel component and calculate the filtered value 
+		// using neighbouring texel components
+		// Convert, implicitly, to int to do math
+		inBuff_00 = (int4)(inBuff[c - 1 - w].x, inBuff[c - 1 - w].y, inBuff[c - 1 - w].z, 0);
+		inBuff_10 = (int4)(inBuff[c - w].x, inBuff[c - w].y, inBuff[c - w].z, 0);
+		inBuff_20 = (int4)(inBuff[c + 1 - w].x, inBuff[c + 1 - w].y, inBuff[c + 1 - w].z, 0);
+		inBuff_01 = (int4)(inBuff[c - 1].x, inBuff[c - 1].y, inBuff[c - 1].z, 0);
+		inBuff_11 = (int4)(inBuff[c].x, inBuff[c].y, inBuff[c].z, 0);
+		inBuff_21 = (int4)(inBuff[c + 1].x, inBuff[c + 1].y, inBuff[c + 1].z, 0);
+		inBuff_02 = (int4)(inBuff[c - 1 + w].x, inBuff[c - 1 + w].y, inBuff[c - 1 + w].z, 0);
+		inBuff_12 = (int4)(inBuff[c + w].x, inBuff[c + w].y, inBuff[c + w].z, 0);
+		inBuff_22 = (int4)(inBuff[c + 1 + w].x, inBuff[c + 1 + w].y, inBuff[c + 1 + w].z, 0);
+		
+		Gx = inBuff_00 + (int4)(2) * inBuff_10 + inBuff_20 - inBuff_02 - (int4)(2) * inBuff_12 - inBuff_22;
+		Gy = inBuff_00 - inBuff_20 + (int4)(2) * inBuff_01 - (int4)(2) * inBuff_21 + inBuff_02 - inBuff_22;
+
+		// taking root of sums of squares of Gx and Gy
+		int4 DX = (int4)(0);
+		
+		DX.x = (int)(hypot((float)Gx.x, (float)Gy.x)/(float)(2));
+		DX.y = (int)(hypot((float)Gx.y, (float)Gy.y)/(float)(2));
+		DX.z = (int)(hypot((float)Gx.z, (float)Gy.z)/(float)(2));
+		
+		outBuff[c] = (uchar4)(DX.x, DX.y, DX.z, 255);		
+	}
+</script>
+<script type="text/javascript">
+	var imageNameArr = ["output3.jpg", "Chopin.jpg"];
+	var arrSize = imageNameArr.length;
+	var imageArr = new Array();
+	
+	function setupGUI(){
+		setupImageRadios();	;
+		setupDeviceRadios();			
+	}
+	
+	function setupImageRadios(){		
+		var imageStr = "<form name='chooseImage'><b>Choose image:</b><br/><br/>";
+		for(var i = 0; i < arrSize; i++){
+			imageStr += "<input type='radio' value='" + i + "' name='images'>"
+						+ i + ". "+ imageNameArr[i];
+			imageStr += "&nbsp;<canvas id='canvasRadioImg" + i + "' width=20 height=20 style='vertical-align: middle;'></canvas>";
+			(i < arrSize-1)? imageStr += "<br /><br />" : imageStr += "<br />";			
+		}		
+		// String deviceRadioStr is printed out to div element output
+		var divImageRadios = document.getElementById ("divImageRadios");
+		divImageRadios.innerHTML = imageStr + "</form>";
+		
+		for(var i = 0; i < arrSize; i++){	
+			imageArr[i] = new Image();
+			imageArr[i].onload = function(){setImagesToCanvas(this, "canvasRadioImg");};
+			imageArr[i].src = imageNameArr[i];		
+		}
+	}
+	
+	function setupDeviceRadios(){
+		var deviceRadioStr = "<form name='chooseDevice'><b>Choose device:</b><br/><br/>";
+		try {			
+			if (checkWebCL()==false) {
+				return false;
+			}
+			
+			var platforms = WebCL.getPlatformIDs ();
+			for (var i in platforms) {
+				var plat = platforms[i];
+				var platformName = plat.getPlatformInfo (WebCL.CL_PLATFORM_NAME);
+				deviceRadioStr += "<b>"+ i +".&nbsp;"+ platformName + "</b><br>";
+				
+				var devices = plat.getDeviceIDs (WebCL.CL_DEVICE_TYPE_ALL);
+				for (var j in devices) {
+					var dev = devices[j];
+					var deviceName = dev.getDeviceInfo(WebCL.CL_DEVICE_NAME);
+					deviceRadioStr += "&nbsp;<input type='radio' value='"
+						+ i + "," + j +	"' name='device'>"+j+". "+ deviceName +"<br/>";
+				}
+				deviceRadioStr += "<br/>";
+			}
+		} catch(e) {
+			var output = document.getElementById ("output");
+			output.innerHTML += "<b>Error:</b> <pre style='color:red;'>"+e.toString()+"</pre>";
+			throw e;
+		}      
+		// String deviceRadioStr is printed out to div element output
+		var divDeviceRadios = document.getElementById ("divDeviceRadios");
+		divDeviceRadios.innerHTML = deviceRadioStr + "</form>";		
+	}
+	
+	function setImagesToCanvas(img, canName){
+		try {
+			if(canName == "canvasRadioImg"){
+				var indexOfImg = imageArr.indexOf(img);
+				var can = document.getElementById(canName + indexOfImg);
+				var ctx = can.getContext("2d");
+				var longestSide = 40;
+				var scale = scaleWidth = scaleHeight = scaledW = scaledH = 0;
+				scaleWidth = longestSide / img.width;
+				scaleHeight = longestSide / img.height;
+				(scaleWidth > scaleHeight)? scale = scaleHeight : scale = scaleWidth;
+				scaledW = img.width * scale;
+				scaledH = img.height * scale;
+				can.width = scaledW;
+				can.height = scaledH;			
+				ctx.drawImage(img , 0, 0, scaledW, scaledH);
+			}else{
+				var can = document.getElementById(canName);
+				var ctx = can.getContext("2d");
+				can.width = img.width;
+				can.height = img.height;
+				ctx.drawImage (img, 0, 0, img.width, img.height);				
+			}
+		} catch(e) {
+			document.getElementById("output").innerHTML += "<h3>ERROR:</h3><pre style=\"color:red;\">" + e.message + "</pre>";
+			throw e;
+		}
+	}	
+	
+	function checkWebCL(){
+		if (window.WebCL == undefined) {
+			alert("Unfortunately your system does not support WebCL. " +
+					"Make sure that you have both the OpenCL driver " +
+					"and the WebCL browser extension installed.");
+			return false;
+		}
+		return true;
+	}
+
+	function loadKernel(id){
+		var kernelElement = document.getElementById(id);
+		var kernelSource = kernelElement.text;
+		if (kernelElement.src != "") {
+			var mHttpReq = new XMLHttpRequest();
+			mHttpReq.open("GET", kernelElement.src, false);
+			mHttpReq.send(null);
+			kernelSource = mHttpReq.responseText;
+		} 
+		return kernelSource;
+	}
+	
+	function getDeviceType(dev){
+		var retStr = "";
+		switch(dev){
+			case WebCL.CL_DEVICE_TYPE_CPU:
+				retStr = "CPU";
+				break;
+			case WebCL.CL_DEVICE_TYPE_GPU:
+				retStr = "GPU";
+				break;
+			case WebCL.CL_DEVICE_TYPE_ACCELERATOR:
+				retStr = "APU";
+				break;
+			default:
+				retStr = "???";
+				break;
+		}
+		return retStr;
+	}
+
+	function CL_outline () {
+		// All output is written to element by id "output"
+		var output = document.getElementById("outputtextarea");
+		var outputStr = "";
+		
+		// Collect chosen image
+		// or return alert box		
+		var imgRadioBtn = document.chooseImage.images;
+		var imgRadioBtnCnt = imgRadioBtn.length;
+		var imgRadVal = -1;
+		for (var i=0; i < imgRadioBtnCnt; i++){
+   			if (imgRadioBtn[i].checked){
+    		  imgRadVal = parseInt(imgRadioBtn[i].value);
+    		}
+ 		}
+		if(imgRadVal <= -1){
+			alert("Please choose a 'image'"); 
+			return;
+		}
+        setImagesToCanvas(imageArr[imgRadVal], "canvasImg"); 
+		
+		// Collect chosen device selected
+		// or return alert box
+		var devRadioBtn = document.chooseDevice.device;
+		var devRadioBtnCnt = devRadioBtn.length;
+		var devRadVal = "";
+		for (var i=0; i < devRadioBtnCnt; i++){
+   			if (devRadioBtn[i].checked){
+    		  devRadVal = devRadioBtn[i].value;
+    		}
+ 		}
+		if(!(devRadVal.length > 0)){
+			alert("Please choose a 'device'"); 
+			return;
+		}
+		var devRadValArr = devRadVal.split(",");
+		var platformChosen = devRadValArr[0];
+		var deviceChosen = devRadValArr[1];
+		
+		output.innerHTML = "";
+
+		try {
+			// First check if the WebCL extension is installed at all 
+			checkWebCL();
+
+			// Get pixel data from canvas
+			var canvasImg = document.getElementById("canvasImg");
+			var canvasImgCtx = canvasImg.getContext("2d");
+			var intWidth = canvasImg.width;
+			var intHeight = canvasImg.height;
+			var pixels = canvasImgCtx.getImageData(0, 0, intWidth, intHeight);
+
+			// Dimm the existing canvas to highlight any errors we might get.
+			// This does not affect the already retrieved pixel data.
+			canvasImgCtx.fillStyle = "rgba(0,0,0,0.7)";
+			canvasImgCtx.fillRect(0, 0, intWidth, intHeight);
+                  
+			// Setup WebCL context using the default device of the first available platform
+			var platforms = WebCL.getPlatformIDs();
+			//var ctx = WebCL.createContextFromType ([WebCL.CL_CONTEXT_PLATFORM, platforms[platformChosen]], WebCL.CL_DEVICE_TYPE_DEFAULT);
+			var ctx = WebCL.createContextFromType ([WebCL.CL_CONTEXT_PLATFORM, platforms[platformChosen]], WebCL.CL_DEVICE_TYPE_ALL);
+
+			// Setup buffers
+			var imgSize = intWidth * intHeight;
+			outputStr += "Image size: " + imgSize + " pixels ("	+ intWidth + " x " + intHeight + ")";
+			
+			// "image * 4" broken down
+			// image = (w * h)
+			// 4 = number of chars
+			// implicitly * 1 because char size = 1 * byte
+			var bufSize = imgSize * 4; // size in bytes
+			
+			outputStr += "\nBuffer size: " + bufSize + " bytes";
+                  
+			var bufIn = ctx.createBuffer (WebCL.CL_MEM_READ_ONLY, bufSize);
+			var bufOut = ctx.createBuffer (WebCL.CL_MEM_WRITE_ONLY, bufSize);
+
+			// Create and build program
+			var kernelSrc = loadKernel("clProgramOutline");
+			var program = ctx.createProgramWithSource(kernelSrc);
+			var devices = ctx.getContextInfo(WebCL.CL_CONTEXT_DEVICES);
+			try {
+				program.buildProgram ([devices[deviceChosen]], "");
+			} catch(e) {
+				alert ("Failed to build WebCL program. Error "
+						+ program.getProgramBuildInfo (devices[deviceChosen], WebCL.CL_PROGRAM_BUILD_STATUS)
+						+ ":  " + program.getProgramBuildInfo (devices[deviceChosen], WebCL.CL_PROGRAM_BUILD_LOG));
+				throw e;
+			}
+
+			// Create kernel and set arguments
+			var kernel = program.createKernel ("adjust_Pixel");
+			kernel.setKernelArg (0, bufIn);
+			kernel.setKernelArg (1, bufOut);
+			kernel.setKernelArg (2, intWidth, WebCL.types.UINT);
+			kernel.setKernelArg (3, intHeight, WebCL.types.UINT);
+
+			// Create command queue using the first available device
+			var cmdQueue = ctx.createCommandQueue (devices[deviceChosen], 0);
+
+			// Write the buffer to OpenCL device memory
+			cmdQueue.enqueueWriteBuffer (bufIn, false, 0, bufSize, pixels.data, []);
+
+			// Init ND-range 
+			var localWS = [16,4];  
+			var globalWS = [Math.ceil (intWidth / localWS[0]) * localWS[0], 
+							Math.ceil (intHeight / localWS[1]) * localWS[1]];
+                  
+			outputStr += "\nwork group dimensions: " + globalWS.length;
+			for (var i = 0; i < globalWS.length; ++i)
+				outputStr += "\nglobal work item size[" + i + "]: " + globalWS[i];
+			for (var i = 0; i < localWS.length; ++i)
+				outputStr += "\nlocal work item size[" + i + "]: " + localWS[i];				
+				
+			var dev = devices[deviceChosen];
+			var platName = "Platform: " +
+							dev.getDeviceInfo(WebCL.CL_DEVICE_PLATFORM).getPlatformInfo(WebCL.CL_PLATFORM_NAME);			
+			platName = platName.replace(/ +/g, " ");
+			var devName = "Device: " + dev.getDeviceInfo(WebCL.CL_DEVICE_NAME);			
+			devName = devName.replace(/ +/g, " ");			
+			
+			outputStr =  platName + "\n" + devName + "\n" + 
+				"Device Type: " + getDeviceType(dev.getDeviceInfo(WebCL.CL_DEVICE_TYPE)) + "\n\n" +
+				"Max Work Group Size: " + dev.getDeviceInfo(WebCL.CL_DEVICE_MAX_WORK_GROUP_SIZE) + "\n" +
+				"Compute Units: " + dev.getDeviceInfo(WebCL.CL_DEVICE_MAX_COMPUTE_UNITS) + "\n" +
+				"Global Mem Size: " + ((dev.getDeviceInfo(WebCL.CL_DEVICE_GLOBAL_MEM_SIZE)/1024)/1024) + " MB\n" +
+				"Local Mem Size: " + (dev.getDeviceInfo(WebCL.CL_DEVICE_LOCAL_MEM_SIZE)/1024) + " KB\n\n" +
+				outputStr;
+                  
+			// Execute (enqueue) kernel
+			cmdQueue.enqueueNDRangeKernel(kernel, globalWS.length, [], globalWS, localWS, []);
+
+			// Read the result buffer from OpenCL device
+			cmdQueue.enqueueReadBuffer (bufOut, false, 0, bufSize, pixels.data, []);
+			cmdQueue.finish (); //Finish all the operations
+                  
+			canvasImgCtx.putImageData (pixels, 0, 0);
+
+			outputStr += "\nDone.";
+			output.innerHTML += outputStr;
+		} catch(e) {
+			document.getElementById("output").innerHTML += "<h3>ERROR:</h3><pre style=\"color:red;\">" + e.message + "</pre>";
+			throw e;
+		}
+	}
+</script>
+<body onLoad="setupGUI()">
+<table width="1100" border="0" align="center" cellpadding="7" cellspacing="7">
+  <tr>
+    <td colspan="2" class="genTd">&nbsp;</td>
+  </tr>
+  <tr>
+    <td valign="top" class="genTd"><div id="divImageRadios"></div></td>
+    <td width="800" rowspan="4" valign="top" class="genTd"><div id="divCanvasImg"><canvas id="canvasImg" width='800' height='600'></canvas></div>
+  </tr>
+  <tr>
+    <td valign="top" class="genTd"><div id="divDeviceRadios"></div></td>
+  </tr>
+  <tr>
+    <td align="center" valign="middle" class="genTd"><input type="button" value="Run 'CL_outline()'" onClick="CL_outline()" class="buttons"></td>
+  </tr>
+  <tr>
+    <td width="300" valign="top" class="genTd"><textarea name="outputtextarea" readonly="readonly" id="outputtextarea"></textarea></td>
+  </tr>
+</table>
+<br />
+<div id="output"></div>
+<br/>
+<br />
+<br />
+Some of this comes from here... <br />
+<a href="http://webcl.nokiaresearch.com/tutorials/tutorials.html" target="_blank">http://webcl.nokiaresearch.com/tutorials/tutorials.html</a><br />
+</body>
+</html>
