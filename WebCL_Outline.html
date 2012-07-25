@@ -69,6 +69,13 @@ a:hover {
 	width: 803px;
 	overflow: auto;	
 }
+.adjustTable{
+	font-size: x-small;
+	line-height: 11px;
+}
+.titleTd{
+	font: xx-large "Courier New", Courier, monospace;
+}
 -->
 </style>
 </head>
@@ -401,7 +408,13 @@ a:hover {
 <body onLoad="setupGUI()">
 <table width="1100" border="0" align="center" cellpadding="7" cellspacing="7">
   <tr>
-    <td colspan="2" class="genTd">&nbsp;</td>
+    <td colspan="2" class="genTd"><table width="700" border="0" align="right" cellpadding="3" cellspacing="0">
+                <tr>
+                  <td class="titleTd">WebCL Outline</td>
+                  <td class="adjustTable">By Mark&nbsp;Becker</td>
+                  <td align="right" valign="top"><img src="Graphics/WebCL_Logo_sm.jpg" width="118" height="60"></td>
+                </tr>
+              </table></td>
   </tr>
   <tr>
     <td valign="top" class="genTd"><div id="divImageRadios"></div></td>
