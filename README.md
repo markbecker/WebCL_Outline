@@ -66,7 +66,7 @@
         </tr>
         <tr>
           <td valign="top" colspan="2">Screen shot of page displayed:<br />
-            <a href="https://github.com/markbecker/WebCL_Outline/raw/master/Graphics/screenshot1.png" target=blank><img border=1 src="https://github.com/markbecker/WebCL_Outline/raw/master/Graphics/screenshot1.png" width="792" height="545" alt="Screenshot 1"/></a><br />
+            <a href="https://github.com/markbecker/WebCL_Outline/raw/master/Graphics/screenshot1.png" target=blank><img border=1 src="https://github.com/markbecker/WebCL_Outline/raw/master/Graphics/screenshot1.png" width="800" height="599" alt="Screenshot 1"/></a><br />
             <a href="https://github.com/markbecker/WebCL_Outline/raw/master/Graphics/screenshot1.png" target=blank>Click for larger</a><br />
             <br /></td>
         </tr>
